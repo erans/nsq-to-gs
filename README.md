@@ -12,14 +12,14 @@ Written by Eran Sandler [(@erans)](https://twitter.com/erans) http://eran.sandle
 * _max-in-flight-time:_ The maximum number of seconds to wait before flushing (in case maxInFlight is not enough)
 * _lookupd-http-address:_ The address of an NSQLookup daemon to connect to
 * _nsqd-tcp-address:_ A specific NSQ daemon to connect to
-* _bucket-seconds:_ The time-bucket-size of each file you want to end up with on S3, if we don't hit bucketMessages first (eg 3600 will give you one file on S3 per-hour)
+* _bucket-seconds:_ The time-bucket-size of each file you want to end up with on GS, if we don't hit bucketMessages first (eg 3600 will give you one file on GS per-hour)
 * _bucket-messages:_ Total number of messages to bucket (if bucketSeconds doesn't elapse first)
-* _s3bucket:_ The S3 bucket to store the files on (eg "nsq-archive")
-* _s3path:_ A path to store the archive files under (eg "/live-dumps")
-* _awsregion:_ The name of the AWS region to connect to (should be the same region as your chosen S3 bucket is homed in)
+* _gsbucket:_ The GS bucket to store the files on (eg "nsq-archive")
+* _gspath:_ A path to store the archive files under (eg "/live-dumps")
+* _region:_ The name of the AWS region to connect to (should be the same region as your chosen GS bucket is homed in)
 * _batchmode:_ Which mode to run in [memory, disk, channel]
-* _bufferfile:_ The name of a file to use as a local on-disk buffer between flushes to S3 (should be something durable)
-* _extention:_ Extention for files on S3
+* _bufferfile:_ The name of a file to use as a local on-disk buffer between flushes to GS (should be something durable)
+* _extention:_ Extention for files on GS
 
 ## Modes (current)
 NSQ-to-GS can operate in several different modes, depending on your storage and/or durability requirements:
@@ -40,7 +40,7 @@ As with batch-on-disk but all messages are kept in-memory between flushes to GS.
   * Subs to NSQ (creates a channel)
   * Waits for timeBucket to elapse
   * Pauses the channel
-  * Takes all the messages off the queue, de-dupes in memory, sticks them on S3
+  * Takes all the messages off the queue, de-dupes in memory, sticks them on GS
   * Finish()es the messages
   * Unpauses the channel
   * Repeat
@@ -54,7 +54,7 @@ As with batch-on-disk but all messages are kept in-memory between flushes to GS.
 
 #### Consuming a topic, buffering on disk, flushing in-flight at 1000 messages, flushing to GS every 5 minutes:
 ```
-nsq-to-s3 -gsbucket=nsq-archive -topic=firehose -channel='nsq-to-gs#ephemeral' -lookupd-http-address=10.0.0.2:4161 -gspath=/live-dumps/firehose -awsregion=eu-central-1 -bucket-seconds=300 -max-in-flight=1000 -batchmode=disk
+nsq-to-gs -gsbucket=nsq-archive -topic=firehose -channel='nsq-to-gs#ephemeral' -lookupd-http-address=10.0.0.2:4161 -gspath=/live-dumps/firehose -awsregion=eu-central-1 -bucket-seconds=300 -max-in-flight=1000 -batchmode=disk
 ```
 
 ## Bugs (current)
