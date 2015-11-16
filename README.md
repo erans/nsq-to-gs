@@ -3,6 +3,8 @@ Stream an NSQ channel to Google Cloud Storage
 
 Based on [nsq-to-s3](https://github.com/chrusty/nsq-to-s3) by [chrusty](https://github.com/chrusty)
 
+Written by Eran Sandler [(@erans)](https://twitter.com/erans) http://eran.sandler.co.il
+
 ## Parameters
 * _topic:_ The NSQ topic to subscribe to
 * _channel:_ An NSQ channel name to use (defaults to an automatically-generated ephemeral channel)
