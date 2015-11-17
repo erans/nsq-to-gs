@@ -1,5 +1,7 @@
 ![nsq-to-gs](http://i0.wp.com/eran.sandler.co.il/wp-content/uploads/2015/11/nsq-to-googlestorage.png?resize=300%2C117)
 
+[![Build Status](https://travis-ci.org/erans/nsq-to-gs.svg?branch=master)](https://travis-ci.org/erans/nsq-to-gs)
+
 # nsq-to-gs
 Stream an NSQ channel to Google Cloud Storage
 
