@@ -1,9 +1,9 @@
-Package: s3-to-nsq 
-Version: 1.0.0
+Package: gs-to-nsq
+Version: 0.1
 Architecture: amd64
 Essential: no
 Section: Applications
 Priority: optional
-Maintainer: devops@hailocab.com
+Maintainer: eran@sandler.co.il
 Installed-Size: 10000
-Description: NSQ to S3 ("stream" an NSQ topic to S3)
+Description: NSQ to GS ("stream" an NSQ topic to Google Storage)

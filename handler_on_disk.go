@@ -3,8 +3,8 @@ package main
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"github.com/bitly/go-nsq"
 	log "github.com/cihub/seelog"
+	"github.com/nsqio/go-nsq"
 	"io/ioutil"
 	"os"
 	"time"
@@ -15,7 +15,7 @@ type OnDiskHandler struct {
 	inFlightMessages      []*nsq.Message
 	deDuper               map[string]int
 	messagesBuffered      int64
-	timeLastFlushedToS3   int
+	timeLastFlushedToGS   int
 	timeLastFlushedToDisk int
 }
 
@@ -58,10 +58,10 @@ func (handler *OnDiskHandler) HandleMessage(m *nsq.Message) error {
 		handler.FlushInFlightMessages()
 	}
 
-	// See if we need to flush to S3:
-	if (handler.messagesBuffered == int64(*bucketMessages)) || (int(time.Now().Unix())-handler.timeLastFlushedToS3 >= *bucketSeconds) {
-		log.Infof("Flushing buffer to S3 ...")
-		handler.FlushBufferToS3()
+	// See if we need to flush to GS:
+	if (handler.messagesBuffered == int64(*bucketMessages)) || (int(time.Now().Unix())-handler.timeLastFlushedToGS >= *bucketSeconds) {
+		log.Infof("Flushing buffer to GS ...")
+		handler.FlushBufferToGS()
 	}
 
 	return nil
@@ -116,7 +116,7 @@ func (handler *OnDiskHandler) FlushInFlightMessages() error {
 }
 
 // Flush the message-buffer:
-func (handler *OnDiskHandler) FlushBufferToS3() error {
+func (handler *OnDiskHandler) FlushBufferToGS() error {
 
 	log.Debugf("Messages processed (since the beginning): %d", handler.allTimeMessages)
 
@@ -127,7 +127,7 @@ func (handler *OnDiskHandler) FlushBufferToS3() error {
 		os.Exit(2)
 	}
 
-	// Store them on S3:
+	// Store them on GS:
 	err = StoreMessages(fileData)
 	if err != nil {
 		log.Criticalf("Unable to store messages! %v", err)
@@ -136,7 +136,7 @@ func (handler *OnDiskHandler) FlushBufferToS3() error {
 
 	// Reset the handler:
 	handler.deDuper = make(map[string]int)
-	handler.timeLastFlushedToS3 = int(time.Now().Unix())
+	handler.timeLastFlushedToGS = int(time.Now().Unix())
 	handler.messagesBuffered = 0
 	os.Remove(*messageBufferFileName)
 

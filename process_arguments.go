@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	log "github.com/cihub/seelog"
-	"github.com/goamz/goamz/aws"
 	"math/rand"
 	"time"
 )
@@ -24,22 +23,31 @@ func processArguments() bool {
 
 	// See if we've been asked to just print the version and exit:
 	if *showVersion {
-		log.Infof("nsq-to-s3 v%s\n", binaryVersion)
+		log.Infof("nsq-to-gs v%s\n", binaryVersion)
 		return true
 	}
 
-	// Ensure that the user has provided an S3 bucket:
-	if *s3Bucket == "" {
-		log.Warnf("--s3bucket is required")
+	if *projectID == "" {
+		log.Warnf("-projectid is required")
 		return true
-	} else {
-		log.Infof("S3-Bucket: %v%v", *s3Bucket, *s3Path)
 	}
+
+	log.Infof("ProjectId: %v", *projectID)
+
+	// Ensure that the user has provided an GS bucket:
+	if *gsBucket == "" {
+		log.Warnf("--gsbucket is required")
+		return true
+	}
+
+	log.Infof("GS-Bucket: %v%v", *gsBucket, *gsPath)
+
+	log.Infof("GS-FilePrefix: %s", *gsFilePrefix)
 
 	// See if the user has provided a channel name, or invent a random one:
 	if *channel == "" {
 		rand.Seed(time.Now().UnixNano())
-		*channel = fmt.Sprintf("nsq_to_s3-%06d#ephemeral", rand.Int()%999999)
+		*channel = fmt.Sprintf("nsq_to_gs-%06d#ephemeral", rand.Int()%999999)
 	}
 	log.Infof("Channel: %v", *channel)
 
@@ -47,9 +55,9 @@ func processArguments() bool {
 	if *topic == "" {
 		log.Warnf("--topic is required")
 		return true
-	} else {
-		log.Infof("Topic: %v", *topic)
 	}
+
+	log.Infof("Topic: %v", *topic)
 
 	// Ensure that the user has at least provided an NSQd or Lookupd address:
 	if len(nsqdTCPAddrs) == 0 && len(lookupdHTTPAddrs) == 0 {
@@ -63,22 +71,13 @@ func processArguments() bool {
 		return true
 	}
 
-	// Ensure that the user has provided a valid AWS region:
-	_, regionExists := aws.Regions[*awsRegion]
-	if !regionExists {
-		log.Errorf("AWS Region (%s) doesn't exist!", *awsRegion)
-		return true
-	} else {
-		log.Infof("aws-region: %v", *awsRegion)
-	}
-
 	// See which mode we've been asked to run in:
 	switch *batchMode {
 	case "disk":
 		{
 			log.Infof("Batch-mode: disk (messages will be stored on-disk between flushes)")
 			if *messageBufferFileName == "" {
-				*messageBufferFileName = "/tmp/nsq-to-s3." + *topic
+				*messageBufferFileName = "/tmp/nsq-to-gs." + *topic
 			}
 			log.Infof("Message-buffer-file: %v", *messageBufferFileName)
 		}
@@ -102,7 +101,7 @@ func processArguments() bool {
 	log.Infof("Bucket-size (seconds): %v", *bucketSeconds)
 	log.Infof("Max-in-flight (messages): %v", *maxInFlight)
 	log.Infof("Max-in-flight (seconds): %v", *maxInFlightTime)
-	log.Infof("S3 file-extention: %v", *s3FileExtention)
+	log.Infof("GS file-extension: %v", *gsFileExtension)
 
 	return false
 }

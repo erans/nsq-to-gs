@@ -4,26 +4,30 @@ import (
 	"bytes"
 	"compress/gzip"
 	"fmt"
-	log "github.com/cihub/seelog"
-	"github.com/goamz/goamz/aws"
-	"github.com/goamz/goamz/s3"
 	"os"
 	"time"
+
+	log "github.com/cihub/seelog"
+	"golang.org/x/net/context"
+	"golang.org/x/oauth2/google"
+	storage "google.golang.org/api/storage/v1"
 )
 
-// Print messages to the screen:
+// PrintMessages prints messages to the screen:
 func PrintMessages(fileData []byte) error {
 
-	fileName := fmt.Sprintf("%v/%v/%v/%v/%v/%v.%v.gz", *s3Path, time.Now().Year(), time.Now().Month(), time.Now().Day(), time.Now().Hour(), time.Now().Minute(), *s3FileExtention)
+	var now = time.Now().UTC()
+	fileName := fmt.Sprintf("%s-%d%02d%02d_%02d%02d.%s.gz", *gsFilePrefix, now.Year(), int(now.Month()), now.Day(), now.Hour(), now.Minute(), *gsFileExtension)
+	fullFilePath := fmt.Sprintf("%s/%d/%02d/%02d/%s", *gsPath, now.Year(), int(now.Month()), now.Day(), fileName)
 
-	log.Infof("Would store in '%v'", fileName)
+	log.Infof("Would store in '%v'", fullFilePath)
 
 	log.Debugf("Messages: %v", string(fileData))
 
 	return nil
 }
 
-// Store messages to S3:
+// StoreMessages store messages to GS:
 func StoreMessages(fileData []byte) error {
 
 	// Something to compress the fileData into:
@@ -34,40 +38,31 @@ func StoreMessages(fileData []byte) error {
 
 	log.Infof("Storing %d bytes...", len(fileDataBytes.Bytes()))
 
-	// Authenticate with AWS:
-	awsAuth, err := aws.GetAuth("", "", "", time.Now())
+	// Build the filename we'll use for GS:
+	var now = time.Now().UTC()
+	fileName := fmt.Sprintf("%s-%d%02d%02d_%02d%02d.%s.gz", *gsFilePrefix, now.Year(), int(now.Month()), now.Day(), now.Hour(), now.Minute(), *gsFileExtension)
+
+	fullFilePath := fmt.Sprintf("%s/%d/%02d/%02d/%s", *gsPath, now.Year(), int(now.Month()), now.Day(), fileName)
+
+	// Authentication is provided by the gcloud tool when running locally, and
+	// by the associated service account when running on Compute Engine.
+	client, err := google.DefaultClient(context.Background(), storage.DevstorageFullControlScope)
 	if err != nil {
-		log.Criticalf("Unable to authenticate to AWS! (%s) ...\n", err)
-		os.Exit(2)
-	} else {
-		log.Debugf("Authenticated to AWS")
+		log.Criticalf("Unable to get default client: %v", err)
+	}
+	service, err := storage.New(client)
+	if err != nil {
+		log.Criticalf("Unable to create storage service: %v", err)
 	}
 
-	// Make a new S3 connection:
-	log.Debugf("Connecting to AWS...")
-	s3Connection := s3.New(awsAuth, aws.Regions[*awsRegion])
-
-	// Make a bucket object:
-	s3Bucket := s3Connection.Bucket(*s3Bucket)
-
-	// Prepare arguments for the call to store messages on S3:
-	contType := "text/plain"
-	perm := s3.BucketOwnerFull
-	options := &s3.Options{
-		SSE:  false,
-		Meta: nil,
-	}
-
-	// Build the filename we'll use for S3:
-	fileName := fmt.Sprintf("%v/%v/%v/%v/%v/%v.%v.gz", *s3Path, time.Now().Year(), time.Now().Month(), time.Now().Day(), time.Now().Hour(), time.Now().Minute(), *s3FileExtention)
-
-	// Upload the data:
-	err = s3Bucket.Put(fileName, fileDataBytes.Bytes(), contType, perm, *options)
-	if err != nil {
-		log.Criticalf("Failed to put file (%v) on S3 (%v)", fileName, err)
-		os.Exit(2)
+	// Insert an object into a bucket.
+	object := &storage.Object{Name: fullFilePath}
+	if res, err := service.Objects.Insert(*gsBucket, object).Media(bytes.NewReader(fileDataBytes.Bytes())).Do(); err == nil {
+		log.Infof("Created object %v at location %v\n\n", res.Name, res.SelfLink)
+		log.Infof("Stored file (%v) on GS", fullFilePath)
 	} else {
-		log.Infof("Stored file (%v) on s3", fileName)
+		log.Criticalf("Failed to put file (%v) on S3 (%v)", fullFilePath, err)
+		os.Exit(2)
 	}
 
 	return nil

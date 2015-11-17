@@ -3,15 +3,26 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/bitly/go-nsq"
-	"github.com/bitly/nsq/internal/app"
-	"github.com/bitly/nsq/internal/version"
-	log "github.com/cihub/seelog"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
+
+	log "github.com/cihub/seelog"
+	"github.com/nsqio/go-nsq"
 )
+
+type StringArray []string
+
+func (a *StringArray) Set(s string) error {
+	*a = append(*a, s)
+	return nil
+}
+
+func (a *StringArray) String() string {
+	return strings.Join(*a, ",")
+}
 
 var (
 	showVersion = flag.Bool("version", false, "print version string")
@@ -22,20 +33,19 @@ var (
 	maxInFlightTime       = flag.Int("max-in-flight-time", 60, "max time to keep messages in flight (before flushing)")
 	bucketMessages        = flag.Int("bucket-messages", 0, "total number of messages to bucket")
 	bucketSeconds         = flag.Int("bucket-seconds", 600, "total time to bucket messages for (seconds)")
-	s3Bucket              = flag.String("s3bucket", "", "S3 bucket-name to store the output on (eg 'nsq-archive'")
-	s3Path                = flag.String("s3path", "", "S3 path to store files under (eg '/nsq-archive'")
-	awsRegion             = flag.String("awsregion", "us-east-1", "The AWS region-name to connect to")
+	projectID             = flag.String("projectid", "", "Project ID")
+	gsBucket              = flag.String("gsbucket", "", "GS bucket-name to store the output on (eg 'nsq-archive'")
+	gsPath                = flag.String("gspath", "", "GS path to store files under (eg '/nsq-archive'")
+	gsFilePrefix          = flag.String("gsfileprefix", "file", "File name prefix")
 	batchMode             = flag.String("batchmode", "memory", "How to batch the messages between flushes [disk, memory, channel]")
-	messageBufferFileName = flag.String("bufferfile", "", "Local file to buffer messages in between flushes to S3")
-	s3FileExtention       = flag.String("extention", "txt", "Extention for files on S3")
+	messageBufferFileName = flag.String("bufferfile", "", "Local file to buffer messages in between flushes to GS")
+	gsFileExtension       = flag.String("extension", "json", "Extension for files on GS")
 
-	consumerOpts     = app.StringArray{}
-	nsqdTCPAddrs     = app.StringArray{}
-	lookupdHTTPAddrs = app.StringArray{}
+	nsqdTCPAddrs     = StringArray{}
+	lookupdHTTPAddrs = StringArray{}
 )
 
 func init() {
-	flag.Var(&consumerOpts, "consumer-opt", "option to passthrough to nsq.Consumer (may be given multiple times, http://godoc.org/github.com/bitly/go-nsq#Config)")
 	flag.Var(&nsqdTCPAddrs, "nsqd-tcp-address", "nsqd TCP address (may be given multiple times)")
 	flag.Var(&lookupdHTTPAddrs, "lookupd-http-address", "lookupd HTTP address (may be given multiple times)")
 }
@@ -61,11 +71,9 @@ func main() {
 
 	// Set up the NSQ client:
 	cfg := nsq.NewConfig()
-	cfg.UserAgent = fmt.Sprintf("nsq_to_s3/%s go-nsq/%s", version.Binary, nsq.VERSION)
-	err := app.ParseOpts(cfg, consumerOpts)
-	if err != nil {
-		panic(err)
-	}
+	// Had to hardwire the NSQ version as since Go 1.5 one cannot reference
+	// a package with the name "internal" in it.
+	cfg.UserAgent = fmt.Sprintf("nsq_to_gs/%s go-nsq/%s", "0.3.6", nsq.VERSION)
 	cfg.MaxInFlight = *maxInFlight
 
 	consumer, err := nsq.NewConsumer(*topic, *channel, cfg)
@@ -82,7 +90,7 @@ func main() {
 				allTimeMessages:       0,
 				deDuper:               make(map[string]int),
 				inFlightMessages:      make([]*nsq.Message, 0),
-				timeLastFlushedToS3:   int(time.Now().Unix()),
+				timeLastFlushedToGS:   int(time.Now().Unix()),
 				timeLastFlushedToDisk: int(time.Now().Unix()),
 			}
 
@@ -100,7 +108,7 @@ func main() {
 				allTimeMessages:     0,
 				deDuper:             make(map[string]int),
 				messageBuffer:       make([]*nsq.Message, 0),
-				timeLastFlushedToS3: int(time.Now().Unix()),
+				timeLastFlushedToGS: int(time.Now().Unix()),
 			}
 
 			// Add the handler:

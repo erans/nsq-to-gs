@@ -3,7 +3,7 @@ Stream an NSQ channel to Google Cloud Storage
 
 Based on [nsq-to-s3](https://github.com/chrusty/nsq-to-s3) by [chrusty](https://github.com/chrusty)
 
-Written by Eran Sandler [(@erans)](https://twitter.com/erans) http://eran.sandler.co.il
+Written (more like adjusted) by Eran Sandler [(@erans)](https://twitter.com/erans) http://eran.sandler.co.il
 
 ## Parameters
 * _topic:_ The NSQ topic to subscribe to
@@ -16,10 +16,10 @@ Written by Eran Sandler [(@erans)](https://twitter.com/erans) http://eran.sandle
 * _bucket-messages:_ Total number of messages to bucket (if bucketSeconds doesn't elapse first)
 * _gsbucket:_ The GS bucket to store the files on (eg "nsq-archive")
 * _gspath:_ A path to store the archive files under (eg "/live-dumps")
-* _gsregion:_ The name of the AWS region to connect to (should be the same region as your chosen GS bucket is homed in)
+* _gsfileprefix:_ The generate file name prefix (eg "mylogfile" which would be mylogfile-20151117_1003.json.gz)
 * _batchmode:_ Which mode to run in [memory, disk, channel]
 * _bufferfile:_ The name of a file to use as a local on-disk buffer between flushes to GS (should be something durable)
-* _extention:_ Extention for files on GS
+* _extension:_ Extension for files on GS (default is json)
 
 ## Modes (current)
 NSQ-to-GS can operate in several different modes, depending on your storage and/or durability requirements:
@@ -54,7 +54,7 @@ As with batch-on-disk but all messages are kept in-memory between flushes to GS.
 
 #### Consuming a topic, buffering on disk, flushing in-flight at 1000 messages, flushing to GS every 5 minutes:
 ```
-nsq-to-gs -gsbucket=nsq-archive -topic=firehose -channel='nsq-to-gs#ephemeral' -lookupd-http-address=10.0.0.2:4161 -gspath=/live-dumps/firehose -gsregion=eu-central-1 -bucket-seconds=300 -max-in-flight=1000 -batchmode=disk
+nsq-to-gs -gsproject=myproject -gsbucket=nsq-archive -topic=firehose -channel='nsq-to-gs#ephemeral' -lookupd-http-address=10.0.0.2:4161 -gspath=/live-dumps/firehose -bucket-seconds=300 -max-in-flight=1000 -batchmode=disk
 ```
 
 ## Bugs (current)

@@ -23,4 +23,5 @@ _testmain.go
 *.test
 *.prof
 
-nsq-to-s3
+nsq-to-gs
+nsq_to_gs

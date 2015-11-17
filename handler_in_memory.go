@@ -3,8 +3,8 @@ package main
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"github.com/bitly/go-nsq"
 	log "github.com/cihub/seelog"
+	"github.com/nsqio/go-nsq"
 	"os"
 	"time"
 )
@@ -13,7 +13,7 @@ type InMemoryHandler struct {
 	allTimeMessages     int64
 	deDuper             map[string]int
 	messageBuffer       []*nsq.Message
-	timeLastFlushedToS3 int
+	timeLastFlushedToGS int
 }
 
 // Message handler:
@@ -43,21 +43,21 @@ func (handler *InMemoryHandler) HandleMessage(m *nsq.Message) error {
 		m.Finish()
 	}
 
-	// See if we need to flush to S3:
-	if (len(handler.messageBuffer) == *bucketMessages) || (int(time.Now().Unix())-handler.timeLastFlushedToS3 >= *bucketSeconds) {
-		log.Infof("Flushing buffer to S3 ...")
-		handler.FlushBufferToS3()
+	// See if we need to flush to GS:
+	if (len(handler.messageBuffer) == *bucketMessages) || (int(time.Now().Unix())-handler.timeLastFlushedToGS >= *bucketSeconds) {
+		log.Infof("Flushing buffer to GS ...")
+		handler.FlushBufferToGS()
 	}
 
 	return nil
 }
 
 // Flush the message-buffer:
-func (handler *InMemoryHandler) FlushBufferToS3() error {
+func (handler *InMemoryHandler) FlushBufferToGS() error {
 
 	log.Debugf("Messages processed (since the beginning): %d", handler.allTimeMessages)
 
-	// A byte array to submit to S3:
+	// A byte array to submit to GS:
 	var fileData []byte
 
 	// Turn the message bodies into a []byte:
@@ -66,7 +66,7 @@ func (handler *InMemoryHandler) FlushBufferToS3() error {
 		fileData = append(fileData, []byte("\n")...)
 	}
 
-	// Store them on S3:
+	// Store them on GS:
 	err := StoreMessages(fileData)
 	if err != nil {
 		log.Criticalf("Unable to store messages! %v", err)
@@ -76,7 +76,7 @@ func (handler *InMemoryHandler) FlushBufferToS3() error {
 	// Reset the handler:
 	handler.deDuper = make(map[string]int)
 	handler.messageBuffer = make([]*nsq.Message, 0)
-	handler.timeLastFlushedToS3 = int(time.Now().Unix())
+	handler.timeLastFlushedToGS = int(time.Now().Unix())
 
 	return nil
 
