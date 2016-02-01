@@ -61,7 +61,7 @@ func StoreMessages(fileData []byte) error {
 		log.Infof("Created object %v at location %v\n\n", res.Name, res.SelfLink)
 		log.Infof("Stored file (%v) on GS", fullFilePath)
 	} else {
-		log.Criticalf("Failed to put file (%v) on S3 (%v)", fullFilePath, err)
+		log.Criticalf("Failed to put file (%v) on GS (%v)", fullFilePath, err)
 		os.Exit(2)
 	}
 
